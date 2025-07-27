@@ -35,6 +35,8 @@ def main():
    print("training...")
    model.learn(total_timesteps=10000)
 
+   #saving model
+   model.save("ppo_procgen_model")
 
    # evaluation environment (separate env for evaluation)
    eval_env = DummyVecEnv([make_eval_env])

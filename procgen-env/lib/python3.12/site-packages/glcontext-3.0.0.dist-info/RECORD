@@ -1,0 +1,12 @@
+glcontext-3.0.0.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+glcontext-3.0.0.dist-info/LICENSE,sha256=U0OitJbbMjfgMqEfzVxtGDtKjyiC-z2W2rH8ESTxOcE,1078
+glcontext-3.0.0.dist-info/METADATA,sha256=kXuJMF2UWudbIeogWIsPzlb3xLBu59Ue00B--sIq3Vk,6003
+glcontext-3.0.0.dist-info/RECORD,,
+glcontext-3.0.0.dist-info/WHEEL,sha256=jS6NtB-FxcJIlAzGPqnFxcuJeXSupQMHB2Y1yHj3xFw,224
+glcontext-3.0.0.dist-info/top_level.txt,sha256=IosXQkJ9R4RvrG2uHZJtIQAHYoKmvTeBTb-zdwzFLDE,10
+glcontext/__init__.py,sha256=oGCM-jw1sY_aj781-gOWC3HhhV2r-vzFD2mlJgpoNEM,4225
+glcontext/__pycache__/__init__.cpython-312.pyc,,
+glcontext/__pycache__/empty.cpython-312.pyc,,
+glcontext/egl.cpython-312-x86_64-linux-gnu.so,sha256=BOAckDrBBlxrfsnbt3vgOy3tJHo3eTC2-rFbjji8ik4,52168
+glcontext/empty.py,sha256=NpRWdPWja_mF3vFOM0ZFh0MjQRJQeKFa-0kkV1_ev28,282
+glcontext/x11.cpython-312-x86_64-linux-gnu.so,sha256=qPLCnMYN2IlGKWB6nTOSbCQQOM3hbF_tufB9tavxaJU,54792
