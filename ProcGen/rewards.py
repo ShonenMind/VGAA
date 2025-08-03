@@ -2,58 +2,71 @@ import os
 import re
 from openai import OpenAI
 
-
 openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_api_key)
 
-
 def extract_code_block(response_text):
-   """
-   Extracts Python code from a markdown-style code block (```python ... ```).
-   Raises an error if no valid code block is found.
-   """
-   match = re.search(r"```python(.*?)```", response_text, re.DOTALL)
-   if not match:
-       raise ValueError("No valid Python code block found in LLM response.")
-   return match.group(1).strip()
+    """
+    Extracts Python code from a markdown-style code block (```python ... ```).
+    Falls back to best-effort heuristic if not found.
+    """
+    match = re.search(r"```python(.*?)```", response_text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    
+    # Fallback: try to extract any code-looking region (just in case)
+    lines = response_text.strip().splitlines()
+    code_lines = [line for line in lines if line.strip() and not line.strip().lower().startswith("explanation")]
+    if code_lines:
+        return "\n".join(code_lines).strip()
+
+    raise ValueError("No valid Python code block found in LLM response.")
+
+def _run_llm_prompt(system_msg, user_msg, temperature=0.7, max_tokens=300):
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_msg},
+        ],
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+    return extract_code_block(response.choices[0].message.content.strip())
 
 
 def get_random_reward_fn():
-   system_msg = (
-       "You are an assistant that writes Python reward functions for reinforcement learning "
-       "agents in the Procgen CoinRun environment."
-   )
+    system_msg = (
+        "You are an assistant that writes Python reward functions for reinforcement learning "
+        "agents in the Procgen CoinRun environment."
+    )
 
+    # k-shot: example of expected response format
+    k_shot_example = """Here is an example of the format you should use:
 
-   user_msg = """
+```python
+def reward_fn(state, action, info):
+    return state.get("x", 0) * 0.5 + info.get("velocity", 0)
+```"""
+
+    user_msg = f"""
 Write a Python function named `reward_fn(state, action, info)` that returns a float reward.
 You do NOT know exact details, but have a vague idea that CoinRun involves collecting coins and moving forward.
-Make this reward function somewhat random or unusual but valid Python.
-Return a reward based on 'info' or 'state' that might encourage some novel behavior.
+
+Make the reward function somewhat random or unusual, but valid Python.
+Return a reward based on 'info' or 'state' that might encourage novel behavior.
 Do NOT use external APIs or unsafe code.
-Only output a single Python code block like ```python ... ```. Do not include any explanations or text outside the code block.
+
+ONLY output a single Python code block like ```python ... ``` — no explanation.
+
+{k_shot_example}
 """
 
+    return _run_llm_prompt(system_msg, user_msg, temperature=1.0)
 
-   response = client.chat.completions.create(
-       model="gpt-4",
-       messages=[
-           {"role": "system", "content": system_msg},
-           {"role": "user", "content": user_msg},
-       ],
-       temperature=1.0,
-       max_tokens=300,
-   )
-
-
-   full_response = response.choices[0].message.content.strip()
-   code = extract_code_block(full_response)
-   return code
 
 def get_reactive_reward_fn(previous_code: str, trajectory_summary: str):
-    system_msg = (
-        "You are an assistant that writes Python reward functions for the Procgen CoinRun environment."
-    )
+    system_msg = "You are an assistant that writes Python reward functions for the Procgen CoinRun environment."
 
     user_msg = f"""
 Your previous reward function did not work well and failed preference evaluation.
@@ -67,27 +80,16 @@ Trajectory statistics:
 {trajectory_summary}
 
 Please fix the reward function. Write a new function named `reward_fn(state, action, info)` that returns a float.
-Focus on improving agent performance. Only output a single Python code block like ```python ... ```.
-Do not include any explanation or text outside the code block.
+Focus on improving agent performance.
+
+Only output a single Python code block like ```python ... ```. Do not include any explanation or text outside the code block.
 """
 
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": user_msg},
-        ],
-        temperature=0.7,
-        max_tokens=300,
-    )
+    return _run_llm_prompt(system_msg, user_msg)
 
-    full_response = response.choices[0].message.content.strip()
-    return extract_code_block(full_response)
 
 def get_proactive_reward_fn(current_code: str):
-    system_msg = (
-        "You are an assistant that helps improve Python reward functions for the Procgen CoinRun environment."
-    )
+    system_msg = "You are an assistant that helps improve Python reward functions for the Procgen CoinRun environment."
 
     user_msg = f"""
 The current reward function passed preference evaluation (TPE score ≥ 0.8).
@@ -98,21 +100,28 @@ Current reward function:
 
 Would you like to optionally improve or refine this function to further optimize performance or explore alternate behaviors?
 Write a new version of `reward_fn(state, action, info)` if you want.
+
 Only output a single Python code block like ```python ... ```. No explanations.
 """
 
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": system_msg},
-            {"role": "user", "content": user_msg},
-        ],
-        temperature=0.9,
-        max_tokens=300,
-    )
+    return _run_llm_prompt(system_msg, user_msg, temperature=0.9)
 
-    full_response = response.choices[0].message.content.strip()
-    return extract_code_block(full_response)
+
+def should_proactively_revise(current_code: str) -> bool:
+    system_msg = "You are a reinforcement learning evaluator helping decide whether to revise a reward function."
+
+    user_msg = f"""
+The current reward function passed preference evaluation (TPE score ≥ 0.8).
+Do you want to revise it to further improve it?
+Respond with only one word: "yes" or "no".
+
+Current reward function:
+
+{current_code}
+"""
+
+    reply = _run_llm_prompt(system_msg, user_msg, temperature=0.3, max_tokens=5).lower()
+    return reply in ["yes", "y"]
 
 if __name__ == "__main__":
     code = get_random_reward_fn()

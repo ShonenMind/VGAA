@@ -2,30 +2,45 @@ import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from env_wrapper import ProcgenCoinRunEnvWrapper
-from rewards import get_random_reward_fn, get_refined_reward_fn
+from rewards import get_random_reward_fn, get_reactive_reward_fn, get_proactive_reward_fn, should_proactively_revise
 
 def load_reward_fn(reward_code_str):
     """
     Safely load the reward_fn function from a code string.
+    Includes debugging if 'random' or other symbols are not defined.
     """
+    # attempted patch: auto-insert import if reward uses random/math but LLM forgot to import (didnt work)
+    if "random." in reward_code_str and "import random" not in reward_code_str:
+        print("[DEBUG] Patching missing `import random`")
+        reward_code_str = "import random\n" + reward_code_str
+
+    if "math." in reward_code_str and "import math" not in reward_code_str:
+        print("[DEBUG] Patching missing `import math`")
+        reward_code_str = "import math\n" + reward_code_str
+
     local_vars = {}
     try:
         global_env = {
             "__builtins__": __builtins__,
             "random": __import__("random"),
+            "math": __import__("math"),
             "np": __import__("numpy"),
         }
         exec(reward_code_str, global_env, local_vars)
     except Exception as e:
-        print("Error loading reward function:", e)
+        print("[ERROR] Exception while loading reward function:", e)
         return None
-    return local_vars.get('reward_fn')
+
+    reward_fn = local_vars.get('reward_fn') or global_env.get('reward_fn')
+    if reward_fn is None:
+        print("[ERROR] `reward_fn` not found in loaded code.")
+    return reward_fn
 
 def collect_trajectories(env, model, n_episodes=10):
     successful = []
     unsuccessful = []
 
-    for _ in range(n_episodes):
+    for ep in range(n_episodes):
         obs = env.reset()
         traj = []
         done = False
@@ -43,7 +58,7 @@ def collect_trajectories(env, model, n_episodes=10):
             traj.append((state_dict, action))
             obs = next_obs
 
-        if total_progress >= 0.5:  # Use a clear success signal (not finalized version yet),, the reason i use progress is bc using the reward function for both label succcess + evaluation has circularlity (undermining goal of objectively judging)
+        if total_progress >= 0.5: #this is just a baseline (use total_progress so it doesn't have circular logic)
             successful.append(traj)
         else:
             unsuccessful.append(traj)
@@ -56,12 +71,15 @@ def calculate_average_return(trajectory, reward_func, gamma=0.99):
         try:
             reward = reward_func(state, action, {})
         except Exception as e:
-            print("Reward function error:", e)
+            print("[ERROR] Reward function error at step", i)
+            print("State:", state)
+            print("Action:", action)
+            print("Error:", e)
             reward = 0.0
         cumulative_return += (gamma ** i) * reward
     return cumulative_return / len(trajectory)
 
-def trajectory_preference_evaluation(reward_func, successful, unsuccessful, threshold=0.8): #0.8 was used in CARD's experiments
+def trajectory_preference_evaluation(reward_func, successful, unsuccessful, threshold=0.8):
     print(f"\nEvaluating reward function: {getattr(reward_func, '__name__', 'LLM-generated')}")
 
     success_returns = [calculate_average_return(t, reward_func) for t in successful]
@@ -114,15 +132,14 @@ def main():
         f"Example failure avg length: {np.mean([len(t) for t in unsuccessful]):.2f}\n"
     )
     print("\nTrajectory summary to be used for refinement:\n", trajectory_summary)
+
     if not passed:
         print("Reward function failed TPE // must fix")
         refined_reward_code = get_reactive_reward_fn(reward_code, trajectory_summary)
         print("Refined reward function code:\n", refined_reward_code)
-    
     else:
         print("Reward function passed TPE (>=0.8) // optional proactive revision")
-        user_input = input("Would you like to revise the reward function proactively? (yes/no): ").strip().lower()
-        if user_input in ["yes", "y"]:
+        if should_proactively_revise(reward_code):
             refined_reward_code = get_proactive_reward_fn(reward_code)
             print("Proactively revised reward function code:\n", refined_reward_code)
         else:
