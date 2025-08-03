@@ -50,48 +50,71 @@ Only output a single Python code block like ```python ... ```. Do not include an
    code = extract_code_block(full_response)
    return code
 
+def get_reactive_reward_fn(previous_code: str, trajectory_summary: str):
+    system_msg = (
+        "You are an assistant that writes Python reward functions for the Procgen CoinRun environment."
+    )
 
-def get_refined_reward_fn(previous_code: str, trajectory_summary: str):
-   system_msg = (
-       "You are an assistant that writes Python reward functions for the Procgen CoinRun environment."
-   )
+    user_msg = f"""
+Your previous reward function did not work well and failed preference evaluation.
 
-
-   user_msg = f"""
-Previous reward function code:
-
+Previous reward function:
 
 {previous_code}
 
-
-Agent performed with these trajectory stats:
-
+Trajectory statistics:
 
 {trajectory_summary}
 
-
-Please provide a new improved Python reward function named `reward_fn(state, action, info)` to improve agent behavior.
-Only output a single Python code block like ```python ... ```. Do not include any explanations or text outside the code block.
+Please fix the reward function. Write a new function named `reward_fn(state, action, info)` that returns a float.
+Focus on improving agent performance. Only output a single Python code block like ```python ... ```.
+Do not include any explanation or text outside the code block.
 """
 
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_msg},
+        ],
+        temperature=0.7,
+        max_tokens=300,
+    )
 
-   response = client.chat.completions.create(
-       model="gpt-4",
-       messages=[
-           {"role": "system", "content": system_msg},
-           {"role": "user", "content": user_msg},
-       ],
-       temperature=0.7,
-       max_tokens=300,
-   )
+    full_response = response.choices[0].message.content.strip()
+    return extract_code_block(full_response)
 
+def get_proactive_reward_fn(current_code: str):
+    system_msg = (
+        "You are an assistant that helps improve Python reward functions for the Procgen CoinRun environment."
+    )
 
-   full_response = response.choices[0].message.content.strip()
-   code = extract_code_block(full_response)
-   return code
+    user_msg = f"""
+The current reward function passed preference evaluation (TPE score ≥ 0.8).
 
+Current reward function:
+
+{current_code}
+
+Would you like to optionally improve or refine this function to further optimize performance or explore alternate behaviors?
+Write a new version of `reward_fn(state, action, info)` if you want.
+Only output a single Python code block like ```python ... ```. No explanations.
+"""
+
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_msg},
+        ],
+        temperature=0.9,
+        max_tokens=300,
+    )
+
+    full_response = response.choices[0].message.content.strip()
+    return extract_code_block(full_response)
 
 if __name__ == "__main__":
-   code = get_random_reward_fn()
-   print("=== Random initial reward function ===\n")
-   print(code)
+    code = get_random_reward_fn()
+    print("=== Random initial reward function ===\n")
+    print(code)
