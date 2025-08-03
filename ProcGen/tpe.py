@@ -114,13 +114,19 @@ def main():
         f"Example failure avg length: {np.mean([len(t) for t in unsuccessful]):.2f}\n"
     )
     print("\nTrajectory summary to be used for refinement:\n", trajectory_summary)
-
     if not passed:
-        print("Reward function failed TPE // must fix ")
-        refined_reward_code = get_refined_reward_fn(reward_code, trajectory_summary)
+        print("Reward function failed TPE // must fix")
+        refined_reward_code = get_reactive_reward_fn(reward_code, trajectory_summary)
         print("Refined reward function code:\n", refined_reward_code)
+    
     else:
-        print("Reward function passed TPE // allow proactive revision")
+        print("Reward function passed TPE (>=0.8) // optional proactive revision")
+        user_input = input("Would you like to revise the reward function proactively? (yes/no): ").strip().lower()
+        if user_input in ["yes", "y"]:
+            refined_reward_code = get_proactive_reward_fn(reward_code)
+            print("Proactively revised reward function code:\n", refined_reward_code)
+        else:
+            print("Keeping current reward function for next iteration.")
 
 if __name__ == "__main__":
     main()
