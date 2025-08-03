@@ -61,7 +61,7 @@ def calculate_average_return(trajectory, reward_func, gamma=0.99):
         cumulative_return += (gamma ** i) * reward
     return cumulative_return / len(trajectory)
 
-def trajectory_preference_evaluation(reward_func, successful, unsuccessful, threshold=0.8):
+def trajectory_preference_evaluation(reward_func, successful, unsuccessful, threshold=0.8): #0.8 was used in CARD's experiments
     print(f"\nEvaluating reward function: {getattr(reward_func, '__name__', 'LLM-generated')}")
 
     success_returns = [calculate_average_return(t, reward_func) for t in successful]
@@ -116,12 +116,11 @@ def main():
     print("\nTrajectory summary to be used for refinement:\n", trajectory_summary)
 
     if not passed:
-        print("Reward function failed TPE — skipping RL training. Sending preference feedback to Coder...")
+        print("Reward function failed TPE // must fix ")
         refined_reward_code = get_refined_reward_fn(reward_code, trajectory_summary)
         print("Refined reward function code:\n", refined_reward_code)
     else:
-        print("Reward function passed TPE — continuing to RL training phase.")
-        # You may insert the RL training call here if desired
+        print("Reward function passed TPE // allow proactive revision")
 
 if __name__ == "__main__":
     main()
