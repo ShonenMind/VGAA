@@ -1,148 +1,108 @@
-import gym
+import os
 import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from stable_baselines3.common.evaluation import evaluate_policy
 from env_wrapper import ProcgenCoinRunEnvWrapper
-from rewards import get_random_reward_fn, get_refined_reward_fn
-
-
-
-
-def load_reward_fn(reward_code_str):
-   local_vars = {}
-   exec(reward_code_str, {}, local_vars)
-   return local_vars.get('reward_fn')
-
-
-
+from rewards import (
+    get_random_reward_fn,
+    get_reactive_reward_fn,
+    get_proactive_reward_fn,
+    should_proactively_revise
+)
+from tpe import (
+    load_reward_fn,
+    collect_trajectories,
+    trajectory_preference_evaluation
+)
 
 def make_train_env(reward_code):
-   return ProcgenCoinRunEnvWrapper(
-       reward_code=reward_code,
-       num_levels=2,
-       start_level=0,
-       use_sequential_levels=True
-   )
-
-
-
+    return ProcgenCoinRunEnvWrapper(
+        reward_code=reward_code,
+        num_levels=2,
+        start_level=0,
+        use_sequential_levels=True
+    )
 
 def make_eval_env():
-   return ProcgenCoinRunEnvWrapper(
-       num_levels=10,
-       start_level=2,
-       use_sequential_levels=True
-   )
-
-
-
+    return ProcgenCoinRunEnvWrapper(
+        num_levels=10,
+        start_level=2,
+        use_sequential_levels=True
+    )
 
 def summarize_trajectories(successful, unsuccessful):
-   summary = (
-       f"successful trajectories: {len(successful)}\n"
-       f"unsuccessful trajectories: {len(unsuccessful)}\n"
-       f"average length success: {np.mean([len(t) for t in successful]):.2f}\n"
-       f"average length fail: {np.mean([len(t) for t in unsuccessful]):.2f}\n"
-   )
-   return summary
-
-
-
-
-def collect_trajectories(env, model, n_episodes=10, success_threshold=5.0):
-   successful = []
-   unsuccessful = []
-
-
-   for _ in range(n_episodes):
-       obs = env.reset()
-       traj = []
-       total_reward = 0.0
-       done = False
-
-
-       while not done:
-           action, _ = model.predict(obs, deterministic=True)
-           next_obs, reward, done, info = env.step(action)
-
-
-           state_dict = {"obs": obs.copy()}
-           traj.append((state_dict, action))
-           obs = next_obs
-           total_reward += reward[0]
-
-
-       if total_reward >= success_threshold:
-           successful.append(traj)
-       else:
-           unsuccessful.append(traj)
-
-
-   return successful, unsuccessful
-
-
-
+    return (
+        f"successful trajectories: {len(successful)}\n"
+        f"unsuccessful trajectories: {len(unsuccessful)}\n"
+        f"average length success: {np.mean([len(t) for t in successful]):.2f}\n"
+        f"average length fail: {np.mean([len(t) for t in unsuccessful]):.2f}\n"
+    )
 
 def main():
-   print("generating initial random reward function...")
-   reward_code = get_random_reward_fn()
-   print("initial reward function code:\n", reward_code)
+    os.makedirs("logs", exist_ok=True)
+    tpe_log_path = "logs/tpe_log.txt"
+    edits_log_path = "logs/edits_log.txt"
 
+    with open(tpe_log_path, "w") as tpe_log, open(edits_log_path, "w") as edits_log:
+        print("Generating initial random reward function...")
+        reward_code = get_random_reward_fn()
+        print("Initial reward function:\n", reward_code)
 
-   n_training_rounds = 3
+        reward_fn = load_reward_fn(reward_code)
+        if reward_fn is None:
+            print("ERROR: Failed to load reward function.")
+            return
 
+        n_training_rounds = 3
 
-   for round_idx in range(n_training_rounds):
-       print(f"\n=== training round {round_idx + 1} ===")
+        for round_idx in range(n_training_rounds):
+            print(f"\n=== Training Round {round_idx + 1} ===")
 
+            train_env = DummyVecEnv([lambda: make_train_env(reward_code)])
+            train_env = VecMonitor(train_env)
 
-       train_env = DummyVecEnv([lambda: make_train_env(reward_code)])
-       train_env = VecMonitor(train_env)
+            model = PPO("CnnPolicy", train_env, verbose=1, n_steps=2048)
+            model.learn(total_timesteps=10000)
+            model.save(f"ppo_model_round_{round_idx + 1}")
 
+            eval_env = DummyVecEnv([make_eval_env])
+            eval_env = VecMonitor(eval_env)
+            mean_reward, std_reward = evaluate_policy(model, eval_env, n_eval_episodes=10)
+            print(f"Eval Reward: {mean_reward:.2f} ± {std_reward:.2f}")
 
-       model = PPO("CnnPolicy", train_env, verbose=1, n_steps=2048)
+            successful, unsuccessful = collect_trajectories(train_env, model, n_episodes=10)
+            if not successful or not unsuccessful:
+                print("Insufficient successful/unsuccessful trajectories for TPE. Stopping.")
+                break
 
+            reward_fn = load_reward_fn(reward_code)
+            passed, accuracy = trajectory_preference_evaluation(reward_fn, successful, unsuccessful)
 
-       print("training ppo agent...")
-       model.learn(total_timesteps=10000)
-       model.save(f"ppo_procgen_model_round_{round_idx + 1}")
+            tpe_log.write(f"Round {round_idx + 1}: TPE Score = {accuracy:.2f}, Passed = {passed}\n")
+            tpe_log.flush()
 
+            summary = summarize_trajectories(successful, unsuccessful)
+            print("\nTrajectory Summary:\n", summary)
 
-       eval_env = DummyVecEnv([make_eval_env])
-       eval_env = VecMonitor(eval_env)
+            if not passed:
+                print("TPE < 0.8 → Reactive correction required.")
+                refined_code = get_reactive_reward_fn(reward_code, summary)
+                edits_log.write(f"Round {round_idx + 1}: TPE={accuracy:.2f}, Edit=Reactive\n")
+            else:
+                if should_proactively_revise(reward_code):
+                    print("TPE passed but choosing to refine proactively.")
+                    refined_code = get_proactive_reward_fn(reward_code)
+                    edits_log.write(f"Round {round_idx + 1}: TPE={accuracy:.2f}, Edit=Proactive\n")
+                else:
+                    print("TPE passed. Keeping current reward function.")
+                    edits_log.write(f"Round {round_idx + 1}: TPE={accuracy:.2f}, Edit=None\n")
+                    refined_code = reward_code
 
+            edits_log.flush()
+            reward_code = refined_code
 
-       print("evaluating ppo agent...")
-       mean_reward, std_reward = evaluate_policy(model, eval_env, n_eval_episodes=10)
-       print(f"evaluation mean reward: {mean_reward:.2f} ± {std_reward:.2f}")
-
-
-       print("collecting trajectories for tpe...")
-       successful, unsuccessful = collect_trajectories(train_env, model, n_episodes=10)
-
-
-       if len(successful) == 0 or len(unsuccessful) == 0:
-           print("warning: not enough successful or unsuccessful trajectories for refinement. stopping.")
-           break
-
-
-       trajectory_summary = summarize_trajectories(successful, unsuccessful)
-       print("trajectory summary:\n", trajectory_summary)
-
-
-       print("generating refined reward function from llm...")
-       refined_code = get_refined_reward_fn(reward_code, trajectory_summary)
-       print("refined reward function code:\n", refined_code)
-
-
-       reward_code = refined_code  # update reward function for next round
-
-
-   print("\ntraining and refinement complete.")
-
-
-
+        print("\nTraining and refinement complete.")
 
 if __name__ == "__main__":
-   main()
+    main()
