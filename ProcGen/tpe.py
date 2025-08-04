@@ -17,6 +17,10 @@ def load_reward_fn(reward_code_str):
     if "math." in reward_code_str and "import math" not in reward_code_str:
         print("[DEBUG] Patching missing `import math`")
         reward_code_str = "import math\n" + reward_code_str
+    
+    with open("temp_reward_debug.py", "w") as f: #debug
+        f.write(reward_code_str)
+        print("[DEBUG] Saved patched reward function to temp_reward_debug.py")
 
     local_vars = {}
     try:
