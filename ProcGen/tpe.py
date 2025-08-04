@@ -3,42 +3,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from env_wrapper import ProcgenCoinRunEnvWrapper
 from rewards import get_random_reward_fn, get_reactive_reward_fn, get_proactive_reward_fn, should_proactively_revise
-
-def load_reward_fn(reward_code_str):
-    """
-    Safely load the reward_fn function from a code string.
-    Includes debugging if 'random' or other symbols are not defined.
-    """
-    # attempted patch: auto-insert import if reward uses random/math but LLM forgot to import (didnt work)
-    if "random." in reward_code_str and "import random" not in reward_code_str:
-        print("[DEBUG] Patching missing `import random`")
-        reward_code_str = "import random\n" + reward_code_str
-
-    if "math." in reward_code_str and "import math" not in reward_code_str:
-        print("[DEBUG] Patching missing `import math`")
-        reward_code_str = "import math\n" + reward_code_str
-    
-    with open("temp_reward_debug.py", "w") as f: #debug
-        f.write(reward_code_str)
-        print("[DEBUG] Saved patched reward function to temp_reward_debug.py")
-
-    local_vars = {}
-    try:
-        global_env = {
-            "__builtins__": __builtins__,
-            "random": __import__("random"),
-            "math": __import__("math"),
-            "np": __import__("numpy"),
-        }
-        exec(reward_code_str, global_env, local_vars)
-    except Exception as e:
-        print("[ERROR] Exception while loading reward function:", e)
-        return None
-
-    reward_fn = local_vars.get('reward_fn') or global_env.get('reward_fn')
-    if reward_fn is None:
-        print("[ERROR] `reward_fn` not found in loaded code.")
-    return reward_fn
+from reward_loader import load_reward_fn
 
 def collect_trajectories(env, model, n_episodes=10):
     successful = []

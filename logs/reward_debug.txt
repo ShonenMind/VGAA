@@ -1,0 +1,30 @@
+
+===== Reward Load Attempt [2025-08-04T17:46:11.132522] =====
+[DEBUG] reward_code_str just before exec:
+import numpy as np
+
+def reward_fn(state, action, info):
+    reward = np.cos(state.get("x", 0)) * np.exp(-info.get("coins_collected", 0))
+    if "enemies_nearby" in info and info["enemies_nearby"]:
+        reward -= np.random.normal(0, 1)
+    return reward
+
+===== Reward Load Attempt [2025-08-04T17:50:55.381530] =====
+[DEBUG] reward_code_str just before exec:
+import random
+
+def reward_fn(state, action, info):
+    coin_count = info.get("coins", 0) 
+    y_position = state.get("y", 0)
+    random_factor = (random.random() * 2 - 1)
+    return coin_count*random_factor + y_position
+
+===== Reward Load Attempt [2025-08-04T17:53:21.331412] =====
+[DEBUG] reward_code_str just before exec:
+import random
+
+def reward_fn(state, action, info):
+    base_reward = info.get('coins_collected', 0) * 2
+    randomness = random.uniform(0.5, 1.5)
+    penalty = info.get('distance_to_next', 0) ** 0.5
+    return base_reward * randomness - penalty

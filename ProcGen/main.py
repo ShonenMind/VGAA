@@ -1,5 +1,7 @@
 import os
 import numpy as np
+import traceback
+from datetime import datetime
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -15,6 +17,8 @@ from tpe import (
     collect_trajectories,
     trajectory_preference_evaluation
 )
+
+REWARD_DEBUG_PATH = "logs/reward_debug.txt"
 
 def make_train_env(reward_code):
     return ProcgenCoinRunEnvWrapper(
@@ -39,6 +43,31 @@ def summarize_trajectories(successful, unsuccessful):
         f"average length fail: {np.mean([len(t) for t in unsuccessful]):.2f}\n"
     )
 
+def try_load_reward_fn(reward_code, round_idx=None):
+    timestamp = datetime.now().isoformat()
+    with open(REWARD_DEBUG_PATH, "a") as log:
+        log.write(f"\n===== Reward Load Attempt [{timestamp}]")
+        if round_idx is not None:
+            log.write(f" | Round {round_idx + 1}")
+        log.write(" =====\n")
+
+        log.write("[DEBUG] reward_code_str just before exec:\n")
+        log.write(reward_code + "\n")
+
+        try:
+            reward_fn = load_reward_fn(reward_code)
+        except Exception as e:
+            log.write("[ERROR] Exception while loading reward function:\n")
+            log.write(traceback.format_exc() + "\n")
+            print("[FATAL] Reward function crash. Check reward_debug.txt.")
+            return None
+
+        if reward_fn is None:
+            log.write("[FATAL] load_reward_fn() returned None.\n")
+            log.write("Available functions in global/local scope not found.\n")
+
+        return reward_fn
+
 def main():
     os.makedirs("logs", exist_ok=True)
     tpe_log_path = "logs/tpe_log.txt"
@@ -49,9 +78,9 @@ def main():
         reward_code = get_random_reward_fn()
         print("Initial reward function:\n", reward_code)
 
-        reward_fn = load_reward_fn(reward_code)
+        reward_fn = try_load_reward_fn(reward_code)
         if reward_fn is None:
-            print("ERROR: Failed to load reward function.")
+            print("[FATAL] Failed to load initial reward function.")
             return
 
         n_training_rounds = 3
@@ -76,7 +105,11 @@ def main():
                 print("Insufficient successful/unsuccessful trajectories for TPE. Stopping.")
                 break
 
-            reward_fn = load_reward_fn(reward_code)
+            reward_fn = try_load_reward_fn(reward_code, round_idx=round_idx)
+            if reward_fn is None:
+                print("[FATAL] Reward function failed to reload after training.")
+                return
+
             passed, accuracy = trajectory_preference_evaluation(reward_fn, successful, unsuccessful)
 
             tpe_log.write(f"Round {round_idx + 1}: TPE Score = {accuracy:.2f}, Passed = {passed}\n")
