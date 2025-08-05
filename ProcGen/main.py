@@ -101,7 +101,7 @@ def main():
             mean_reward, std_reward = evaluate_policy(model, eval_env, n_eval_episodes=10)
             print(f"Eval Reward: {mean_reward:.2f} ± {std_reward:.2f}")
 
-            successful, unsuccessful = collect_trajectories(train_env, model, n_episodes=10)
+            successful, unsuccessful = collect_trajectories(train_env, model, n_episodes=10,round_idx=round_idx)
             if not successful or not unsuccessful:
                 print("Insufficient successful/unsuccessful trajectories for TPE. Stopping.")
                 rounds_log.write(f"Round {round_idx + 1}: Stopped early due to insufficient trajectories.\n")

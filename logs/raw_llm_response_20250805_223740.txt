@@ -1,0 +1,9 @@
+```python
+import random
+
+def reward_fn(state, action, info):
+    coin_count = state.get("coins", 0)
+    distance_covered = info.get("distance", 0)
+    random_bonus = random.uniform(0.1, 0.5) if coin_count % 2 == 0 else 0
+    return 0.5 * coin_count + 0.2 * distance_covered + random_bonus
+```

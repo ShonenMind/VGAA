@@ -1,0 +1,108 @@
+
+--- Loading Reward Function at 2025-08-05 22:28:51.284896 ---
+import math
+
+def reward_fn(state, action, info):
+    coin_count = info.get('coin_count', 0)
+    position = state.get('x', 0)
+    time = state.get('time', 0)
+    
+    reward = math.sin(coin_count) * math.exp(-position * time)
+    
+    return reward
+
+--- Loading Reward Function at 2025-08-05 22:28:52.768582 ---
+import math
+
+def reward_fn(state, action, info):
+    coin_count = info.get('coin_count', 0)
+    position = state.get('x', 0)
+    time = state.get('time', 0)
+    
+    reward = math.sin(coin_count) * math.exp(-position * time)
+    
+    return reward
+
+--- Loading Reward Function at 2025-08-05 22:29:30.515383 ---
+import math
+
+def reward_fn(state, action, info):
+    coin_count = info.get('coin_count', 0)
+    position = state.get('x', 0)
+    time = state.get('time', 0)
+    
+    reward = math.sin(coin_count) * math.exp(-position * time)
+    
+    return reward
+
+--- Loading Reward Function at 2025-08-05 22:33:21.864403 ---
+import random
+import math
+
+def reward_fn(state, action, info):
+    coin = state.get("coin", 0)
+    distance = info.get("distance", 0)
+    reward = math.sin(distance) * (coin ** 0.5) + random.uniform(-0.5, 0.5)
+    return reward
+
+--- Loading Reward Function at 2025-08-05 22:33:24.403947 ---
+import random
+import math
+
+def reward_fn(state, action, info):
+    coin = state.get("coin", 0)
+    distance = info.get("distance", 0)
+    reward = math.sin(distance) * (coin ** 0.5) + random.uniform(-0.5, 0.5)
+    return reward
+
+--- Loading Reward Function at 2025-08-05 22:34:27.395042 ---
+import math
+
+def reward_fn(state, action, info):
+    reward_base = info.get("coins_collected", 1)
+    reward_random = math.sin(state.get("x", 0)) ** 2 + math.exp(-info.get("time_left", 100))
+    return reward_base * reward_random
+
+--- Loading Reward Function at 2025-08-05 22:34:29.048204 ---
+import math
+
+def reward_fn(state, action, info):
+    reward_base = info.get("coins_collected", 1)
+    reward_random = math.sin(state.get("x", 0)) ** 2 + math.exp(-info.get("time_left", 100))
+    return reward_base * reward_random
+
+--- Loading Reward Function at 2025-08-05 22:37:40.449020 ---
+import random
+
+def reward_fn(state, action, info):
+    coin_count = state.get("coins", 0)
+    distance_covered = info.get("distance", 0)
+    random_bonus = random.uniform(0.1, 0.5) if coin_count % 2 == 0 else 0
+    return 0.5 * coin_count + 0.2 * distance_covered + random_bonus
+
+--- Loading Reward Function at 2025-08-05 22:37:43.002486 ---
+import random
+
+def reward_fn(state, action, info):
+    coin_count = state.get("coins", 0)
+    distance_covered = info.get("distance", 0)
+    random_bonus = random.uniform(0.1, 0.5) if coin_count % 2 == 0 else 0
+    return 0.5 * coin_count + 0.2 * distance_covered + random_bonus
+
+--- Loading Reward Function at 2025-08-05 22:38:51.192310 ---
+import random
+
+def reward_fn(state, action, info):
+    coin_score = info.get('coins', 0) * 2
+    exploration_score = state.get('x', 0)/1000 # assume that 'x' is the position
+    random_factor = 0 if random.random() > 0.7 else 1    # apply a random factor to promote exploration
+    return coin_score + exploration_score * random_factor
+
+--- Loading Reward Function at 2025-08-05 22:38:53.680099 ---
+import random
+
+def reward_fn(state, action, info):
+    coin_score = info.get('coins', 0) * 2
+    exploration_score = state.get('x', 0)/1000 # assume that 'x' is the position
+    random_factor = 0 if random.random() > 0.7 else 1    # apply a random factor to promote exploration
+    return coin_score + exploration_score * random_factor

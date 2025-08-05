@@ -1,0 +1,12 @@
+
+[Collecting trajectories - Round ?]
+Episode 1: final progress = 0.000
+Episode 2: final progress = 0.000
+Episode 3: final progress = 0.000
+Episode 4: final progress = 0.000
+Episode 5: final progress = 0.000
+Episode 6: final progress = 0.000
+Episode 7: final progress = 0.000
+Episode 8: final progress = 0.000
+Episode 9: final progress = 0.000
+Episode 10: final progress = 0.000

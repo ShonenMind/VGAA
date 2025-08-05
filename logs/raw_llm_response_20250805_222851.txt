@@ -1,0 +1,12 @@
+```python
+import math
+
+def reward_fn(state, action, info):
+    coin_count = info.get('coin_count', 0)
+    position = state.get('x', 0)
+    time = state.get('time', 0)
+    
+    reward = math.sin(coin_count) * math.exp(-position * time)
+    
+    return reward
+```

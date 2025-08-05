@@ -1,36 +1,43 @@
+import os
 import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from env_wrapper import ProcgenCoinRunEnvWrapper
 from rewards import get_random_reward_fn, get_reactive_reward_fn, get_proactive_reward_fn, should_proactively_revise
 from reward_loader import load_reward_fn
-
-def collect_trajectories(env, model, n_episodes=10):
+def collect_trajectories(env, model, n_episodes=10, round_idx=None):
     successful = []
     unsuccessful = []
 
-    for ep in range(n_episodes):
-        obs = env.reset()
-        traj = []
-        done = False
-        total_progress = 0.0
+    os.makedirs("logs", exist_ok=True)
+    log_path = "logs/tpe_log.txt"
+    with open(log_path, "a") as log_file:
+        log_file.write(f"\n[Collecting trajectories - Round {round_idx + 1 if round_idx is not None else '?'}]\n")
 
-        while not done:
-            action, _ = model.predict(obs, deterministic=True)
-            next_obs, reward, done, info = env.step(action)
+        for ep in range(n_episodes):
+            obs = env.reset()
+            traj = []
+            done = False
+            total_progress = 0.0
 
-            state_dict = {"obs": obs.copy()}
-            if "progress" in info:
-                state_dict["progress"] = info["progress"]
-                total_progress = max(total_progress, info["progress"])
+            while not done:
+                action, _ = model.predict(obs, deterministic=True)
+                next_obs, reward, done, info = env.step(action)
 
-            traj.append((state_dict, action))
-            obs = next_obs
+                state_dict = {"obs": obs.copy()}
+                if "progress" in info:
+                    state_dict["progress"] = info["progress"]
+                    total_progress = max(total_progress, info["progress"])
 
-        if total_progress >= 0.2: #this is just a baseline (use total_progress so it doesn't have circular logic)
-            successful.append(traj)
-        else:
-            unsuccessful.append(traj)
+                traj.append((state_dict, action))
+                obs = next_obs
+
+            log_file.write(f"Episode {ep+1}: final progress = {total_progress:.3f}\n")
+
+            if total_progress >= 0.2:
+                successful.append(traj)
+            else:
+                unsuccessful.append(traj)
 
     return successful, unsuccessful
 

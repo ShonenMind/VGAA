@@ -1,0 +1,10 @@
+```python
+import random
+import math
+
+def reward_fn(state, action, info):
+    coin = state.get("coin", 0)
+    distance = info.get("distance", 0)
+    reward = math.sin(distance) * (coin ** 0.5) + random.uniform(-0.5, 0.5)
+    return reward
+```

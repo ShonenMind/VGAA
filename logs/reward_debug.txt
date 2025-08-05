@@ -1,0 +1,22 @@
+
+===== Reward Load Attempt [2025-08-05T22:28:51.284726] =====
+[DEBUG] reward_code_str just before exec:
+import math
+
+def reward_fn(state, action, info):
+    coin_count = info.get('coin_count', 0)
+    position = state.get('x', 0)
+    time = state.get('time', 0)
+    
+    reward = math.sin(coin_count) * math.exp(-position * time)
+    
+    return reward
+
+===== Reward Load Attempt [2025-08-05T22:34:27.394949] =====
+[DEBUG] reward_code_str just before exec:
+import math
+
+def reward_fn(state, action, info):
+    reward_base = info.get("coins_collected", 1)
+    reward_random = math.sin(state.get("x", 0)) ** 2 + math.exp(-info.get("time_left", 100))
+    return reward_base * reward_random
