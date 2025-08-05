@@ -23,7 +23,7 @@ REWARD_DEBUG_PATH = "logs/reward_debug.txt"
 def make_train_env(reward_code):
     return ProcgenCoinRunEnvWrapper(
         reward_code=reward_code,
-        num_levels=2,
+        num_levels=5,
         start_level=0,
         use_sequential_levels=True
     )
@@ -72,8 +72,9 @@ def main():
     os.makedirs("logs", exist_ok=True)
     tpe_log_path = "logs/tpe_log.txt"
     edits_log_path = "logs/edits_log.txt"
+    rounds_log_path = "logs/training_rounds.log"   # New log for round decisions
 
-    with open(tpe_log_path, "w") as tpe_log, open(edits_log_path, "w") as edits_log:
+    with open(tpe_log_path, "w") as tpe_log, open(edits_log_path, "w") as edits_log, open(rounds_log_path, "w") as rounds_log:
         print("Generating initial random reward function...")
         reward_code = get_random_reward_fn()
         print("Initial reward function:\n", reward_code)
@@ -83,7 +84,7 @@ def main():
             print("[FATAL] Failed to load initial reward function.")
             return
 
-        n_training_rounds = 3
+        n_training_rounds = 7
 
         for round_idx in range(n_training_rounds):
             print(f"\n=== Training Round {round_idx + 1} ===")
@@ -103,11 +104,13 @@ def main():
             successful, unsuccessful = collect_trajectories(train_env, model, n_episodes=10)
             if not successful or not unsuccessful:
                 print("Insufficient successful/unsuccessful trajectories for TPE. Stopping.")
+                rounds_log.write(f"Round {round_idx + 1}: Stopped early due to insufficient trajectories.\n")
                 break
 
             reward_fn = try_load_reward_fn(reward_code, round_idx=round_idx)
             if reward_fn is None:
                 print("[FATAL] Reward function failed to reload after training.")
+                rounds_log.write(f"Round {round_idx + 1}: Failed to reload reward function.\n")
                 return
 
             passed, accuracy = trajectory_preference_evaluation(reward_fn, successful, unsuccessful)
@@ -122,20 +125,24 @@ def main():
                 print("TPE < 0.8 → Reactive correction required.")
                 refined_code = get_reactive_reward_fn(reward_code, summary)
                 edits_log.write(f"Round {round_idx + 1}: TPE={accuracy:.2f}, Edit=Reactive\n")
+                rounds_log.write(f"Round {round_idx + 1}: TPE={accuracy:.2f}, Decision=Reactive correction\n")
             else:
                 if should_proactively_revise(reward_code):
                     print("TPE passed but choosing to refine proactively.")
                     refined_code = get_proactive_reward_fn(reward_code)
                     edits_log.write(f"Round {round_idx + 1}: TPE={accuracy:.2f}, Edit=Proactive\n")
+                    rounds_log.write(f"Round {round_idx + 1}: TPE={accuracy:.2f}, Decision=Proactive revision\n")
                 else:
                     print("TPE passed. Keeping current reward function.")
                     edits_log.write(f"Round {round_idx + 1}: TPE={accuracy:.2f}, Edit=None\n")
+                    rounds_log.write(f"Round {round_idx + 1}: TPE={accuracy:.2f}, Decision=Keep current\n")
                     refined_code = reward_code
 
             edits_log.flush()
+            rounds_log.flush()
             reward_code = refined_code
 
         print("\nTraining and refinement complete.")
 
 if __name__ == "__main__":
-    main()
+    main() 

@@ -1,0 +1,9 @@
+```python
+import random
+
+def reward_fn(state, action, info):
+    coin_bonus = 1 if info.get("coin_collected", 0) else 0
+    position = state.get("position", 0) / 100
+    randomness = (random.random() - 0.5) * 2  # between -1 and 1
+    return position + coin_bonus + randomness
+```

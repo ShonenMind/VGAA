@@ -1,0 +1,10 @@
+```python
+import random
+import numpy as np
+
+def reward_fn(state, action, info):
+    coin_reward = info.get("coin", 0) * random.uniform(0.5, 1.5)
+    distance_reward = state.get("x", 0) * np.sin(action)
+    weird_reward = distance_reward * coin_reward if (distance_reward+coin_reward) % 2 == 0 else distance_reward / (coin_reward + 0.01) - 1
+    return float(weird_reward)
+```

@@ -1,0 +1,22 @@
+```python
+import math
+import random
+
+def reward_fn(state, action, info):
+    reward = 0.0
+    coin_collected = info.get('coin_collected', 0)
+    position = state.get('x', 0)
+    
+    # Give random reward on odd positions to encourage exploration
+    if position % 2 != 0:
+        reward += random.uniform(-1.0, 1.0)
+    
+    # Encourage coin collection by cubic reward
+    reward += math.pow(coin_collected, 3)
+    
+    # Penalize standing still
+    if action == 0:
+        reward -= 1.0
+
+    return reward
+```

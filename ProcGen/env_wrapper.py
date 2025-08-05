@@ -1,8 +1,17 @@
 import gym
 import numpy as np
 import procgen
+import os
+from datetime import datetime
 #testing from vs code app (aanya)
 from reward_loader import load_reward_fn
+
+ENV_WRAPPER_LOG = "logs/env_wrapper_debug.log"
+
+def log_to_file(message, log_file=ENV_WRAPPER_LOG):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(log_file, "a") as f:
+        f.write(f"[{timestamp}] {message}\n")
 
 class ProcgenCoinRunEnvWrapper(gym.Env):
     def __init__(self, reward_code=None, num_levels=200, start_level=0, use_sequential_levels=False):
@@ -24,10 +33,16 @@ class ProcgenCoinRunEnvWrapper(gym.Env):
         if "progress" in info:
             state["progress"] = info["progress"]
 
-        try:
-            custom_reward = self.reward_fn(state, action, info)
-        except Exception as e:
-            print("Reward function error:", e)
+        if self.reward_fn is not None:
+            try:
+                custom_reward = self.reward_fn(state, action, info)
+            except Exception as e:
+                print("Reward function error:", e)
+                log_to_file(f"WARNING: Reward function crashed: {str(e)}. Using default reward.")
+                custom_reward = 0.0
+        else:
+            print("[WARNING] No reward function loaded. Using default reward.")
+            log_to_file("WARNING: Reward function is None. Using default reward.")
             custom_reward = 0.0
 
         return obs, np.array([custom_reward], dtype=np.float32), done, info
@@ -39,5 +54,10 @@ class ProcgenCoinRunEnvWrapper(gym.Env):
         self.env.close()
 
     def _load_reward_fn(self, reward_code):
-        print("[DEBUG] Using shared load_reward_fn from reward_loader.py")
-        return load_reward_fn(reward_code)
+        print(f"[DEBUG] Attempting to load reward function...")
+        reward_fn = load_reward_fn(reward_code)
+        if reward_fn is None:
+            print(f"[ERROR] Failed to load reward function. Code:\n{reward_code[:300]}...")
+        else:
+            print(f"[DEBUG] Successfully loaded reward_fn: {reward_fn}")
+        return reward_fn

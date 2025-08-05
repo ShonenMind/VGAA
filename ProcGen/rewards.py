@@ -1,14 +1,38 @@
 import os
 import re
 from openai import OpenAI
+from datetime import datetime
 
 openai_api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=openai_api_key)
 
+import os
+from datetime import datetime
+
 def extract_code_block(response_text):
+    os.makedirs("logs", exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    with open(f"logs/raw_llm_response_{timestamp}.txt", "w") as f:
+        f.write(response_text)
+
+    match = re.search(r"```python(.*?)```", response_text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    
+    lines = response_text.strip().splitlines()
+    code_lines = [line for line in lines if line.strip() and not line.strip().lower().startswith("explanation")]
+    if code_lines:
+        return "\n".join(code_lines).strip()
+
+    filename = f"logs/invalid_llm_response_{timestamp}.txt"
+    with open(filename, "w") as f:
+        f.write("Full LLM response:\n\n")
+        f.write(response_text.strip() + "\n")
+    raise ValueError(f"No valid Python code block found in LLM response. Logged to {filename}")
+
     """
     Extracts Python code from a markdown-style code block (```python ... ```).
-    Falls back to best-effort heuristic if not found.
+    Falls back to best-effort heuristic if not found. Logs to file if all else fails.
     """
     match = re.search(r"```python(.*?)```", response_text, re.DOTALL)
     if match:
@@ -20,7 +44,15 @@ def extract_code_block(response_text):
     if code_lines:
         return "\n".join(code_lines).strip()
 
-    raise ValueError("No valid Python code block found in LLM response.")
+    # If all extraction fails, log full response to file
+    os.makedirs("logs", exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"logs/invalid_llm_response_{timestamp}.txt"
+    with open(filename, "w") as f:
+        f.write("Full LLM response:\n\n")
+        f.write(response_text.strip() + "\n")
+    raise ValueError(f"No valid Python code block found in LLM response. Logged to {filename}")
+
 
 def _run_llm_prompt(system_msg, user_msg, temperature=0.7, max_tokens=300):
     response = client.chat.completions.create(
@@ -85,7 +117,16 @@ Focus on improving agent performance.
 Only output a single Python code block like ```python ... ```. Do not include any explanation or text outside the code block.
 """
 
-    return _run_llm_prompt(system_msg, user_msg)
+    code = _run_llm_prompt(system_msg, user_msg)
+
+    # Save to debug file with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"debug_reactive_reward_fn_{timestamp}.py"
+    with open(filename, "w") as f:
+        f.write(code)
+    print(f"[DEBUG] Saved reactive reward function to {filename}")
+
+    return code
 
 
 def get_proactive_reward_fn(current_code: str):
@@ -104,7 +145,16 @@ Write a new version of `reward_fn(state, action, info)` if you want.
 Only output a single Python code block like ```python ... ```. No explanations.
 """
 
-    return _run_llm_prompt(system_msg, user_msg, temperature=0.9)
+    code = _run_llm_prompt(system_msg, user_msg, temperature=0.9)
+
+    # Save to debug file with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"debug_proactive_reward_fn_{timestamp}.py"
+    with open(filename, "w") as f:
+        f.write(code)
+    print(f"[DEBUG] Saved proactive reward function to {filename}")
+
+    return code
 
 
 def should_proactively_revise(current_code: str) -> bool:
@@ -122,6 +172,7 @@ Current reward function:
 
     reply = _run_llm_prompt(system_msg, user_msg, temperature=0.3, max_tokens=5).lower()
     return reply in ["yes", "y"]
+
 
 if __name__ == "__main__":
     code = get_random_reward_fn()

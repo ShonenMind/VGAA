@@ -1,0 +1,9 @@
+```python
+import random
+
+def reward_fn(state, action, info):
+    coin_collected = info.get('coin', 0)
+    randomness_factor = random.randint(1, 10)
+    reward = (state.get('x', 0) * 0.3) + (coin_collected * randomness_factor)
+    return reward
+```

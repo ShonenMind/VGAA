@@ -1,0 +1,16 @@
+```python
+import random
+
+def reward_fn(state, action, info):
+    coins_collected = info.get('coins_collected', 0)
+    distance_travelled = state.get('distance_travelled', 0)
+    jump = (action == 1) # Jump action
+
+    # Reward for collecting coins, moving forward and jumping (as it might help avoid obstacles)
+    reward = coins_collected + 0.1 * distance_travelled + (5 * jump)
+
+    # Random adjustments to introduce stochastic behavior
+    reward += random.uniform(-0.2, 0.2)
+
+    return reward
+```
