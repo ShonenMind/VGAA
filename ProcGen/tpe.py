@@ -27,7 +27,7 @@ def collect_trajectories(env, model, n_episodes=10):
             traj.append((state_dict, action))
             obs = next_obs
 
-        if total_progress >= 0.5: #this is just a baseline (use total_progress so it doesn't have circular logic)
+        if total_progress >= 0.2: #this is just a baseline (use total_progress so it doesn't have circular logic)
             successful.append(traj)
         else:
             unsuccessful.append(traj)

@@ -28,8 +28,9 @@ def make_train_env(reward_code):
         use_sequential_levels=True
     )
 
-def make_eval_env():
+def make_eval_env(reward_code=None):
     return ProcgenCoinRunEnvWrapper(
+        reward_code=reward_code,
         num_levels=10,
         start_level=2,
         use_sequential_levels=True
@@ -95,8 +96,7 @@ def main():
             model = PPO("CnnPolicy", train_env, verbose=1, n_steps=2048)
             model.learn(total_timesteps=10000)
             model.save(f"ppo_model_round_{round_idx + 1}")
-
-            eval_env = DummyVecEnv([make_eval_env])
+            eval_env = DummyVecEnv([lambda: make_eval_env(reward_code)])
             eval_env = VecMonitor(eval_env)
             mean_reward, std_reward = evaluate_policy(model, eval_env, n_eval_episodes=10)
             print(f"Eval Reward: {mean_reward:.2f} ± {std_reward:.2f}")
