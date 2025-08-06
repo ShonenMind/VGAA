@@ -17,14 +17,16 @@ def collect_trajectories(env, model, n_episodes=10, round_idx=None):
         for ep in range(n_episodes):
             obs = env.reset()
             traj = []
-            done = False
+            done = [False]
             total_progress = 0.0
 
-            while not done:
+            while not np.all(done):
                 action, _ = model.predict(obs, deterministic=True)
-                next_obs, reward, done, info = env.step(action)
+                next_obs, reward, done, infos = env.step(action)
 
+                info = infos[0]
                 state_dict = {"obs": obs.copy()}
+
                 if "progress" in info:
                     state_dict["progress"] = info["progress"]
                     total_progress = max(total_progress, info["progress"])

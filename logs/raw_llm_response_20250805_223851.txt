@@ -1,9 +1,0 @@
-```python
-import random
-
-def reward_fn(state, action, info):
-    coin_score = info.get('coins', 0) * 2
-    exploration_score = state.get('x', 0)/1000 # assume that 'x' is the position
-    random_factor = 0 if random.random() > 0.7 else 1    # apply a random factor to promote exploration
-    return coin_score + exploration_score * random_factor
-```

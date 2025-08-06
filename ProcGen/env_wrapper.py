@@ -41,14 +41,24 @@ class ProcgenCoinRunEnvWrapper(gym.Env):
                 log_to_file(f"WARNING: Reward function crashed: {str(e)}. Using default reward.")
                 custom_reward = 0.0
         else:
-            print("[WARNING] No reward function loaded. Using default reward.")
-            log_to_file("WARNING: Reward function is None. Using default reward.")
             custom_reward = 0.0
 
-        return obs, np.array([custom_reward], dtype=np.float32), done, info
+        print(f"[DEBUG] Original reward: {reward}, Custom reward: {custom_reward}")
+        log_to_file(f"Original reward: {reward}, Custom reward: {custom_reward}")
+
+        # return original reward if custom_reward is None or 0
+        return obs, float(custom_reward), done, info
 
     def render(self, mode='human'):
-        return self.env.render(mode)
+        frames = self.env.render(mode)
+        if mode == 'rgb_array':
+            # frames is a batch (list/array) of images from vector env
+            if isinstance(frames, (list, tuple, np.ndarray)):
+                return frames[0]
+            return frames
+        else:
+            return frames
+
 
     def close(self):
         self.env.close()

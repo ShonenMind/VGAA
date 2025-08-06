@@ -106,3 +106,159 @@ def reward_fn(state, action, info):
     exploration_score = state.get('x', 0)/1000 # assume that 'x' is the position
     random_factor = 0 if random.random() > 0.7 else 1    # apply a random factor to promote exploration
     return coin_score + exploration_score * random_factor
+
+--- Loading Reward Function at 2025-08-06 17:05:28.793254 ---
+def reward_fn(state, action, info):
+    x = info.get("x_pos", 0)
+    coins = info.get("coins_collected", 0)
+    velocity = info.get("velocity", 0)
+    
+    # Encourage rightward motion and coin collection
+    basic_reward = x * 0.01 + coins
+
+    # Create a small random bonus for exploration
+    exploration_bonus = (basic_reward * 0.1) * (velocity / 100)
+
+    # Slightly decrease reward if the agent is moving very quickly, to encourage careful navigation
+    speed_penalty = 0 if velocity < 10 else (velocity / 100) * -0.01
+
+    # Compute final reward with basic, exploration, and speed components
+    reward = basic_reward + exploration_bonus + speed_penalty
+    
+    return reward
+
+--- Loading Reward Function at 2025-08-06 17:05:30.426765 ---
+def reward_fn(state, action, info):
+    x = info.get("x_pos", 0)
+    coins = info.get("coins_collected", 0)
+    velocity = info.get("velocity", 0)
+    
+    # Encourage rightward motion and coin collection
+    basic_reward = x * 0.01 + coins
+
+    # Create a small random bonus for exploration
+    exploration_bonus = (basic_reward * 0.1) * (velocity / 100)
+
+    # Slightly decrease reward if the agent is moving very quickly, to encourage careful navigation
+    speed_penalty = 0 if velocity < 10 else (velocity / 100) * -0.01
+
+    # Compute final reward with basic, exploration, and speed components
+    reward = basic_reward + exploration_bonus + speed_penalty
+    
+    return reward
+
+--- Loading Reward Function at 2025-08-06 17:06:09.448318 ---
+def reward_fn(state, action, info):
+    x = info.get("x_pos", 0)
+    coins = info.get("coins_collected", 0)
+    velocity = info.get("velocity", 0)
+    
+    # Encourage rightward motion and coin collection
+    basic_reward = x * 0.01 + coins
+
+    # Create a small random bonus for exploration
+    exploration_bonus = (basic_reward * 0.1) * (velocity / 100)
+
+    # Slightly decrease reward if the agent is moving very quickly, to encourage careful navigation
+    speed_penalty = 0 if velocity < 10 else (velocity / 100) * -0.01
+
+    # Compute final reward with basic, exploration, and speed components
+    reward = basic_reward + exploration_bonus + speed_penalty
+    
+    return reward
+
+--- Loading Reward Function at 2025-08-06 17:12:54.522893 ---
+def reward_fn(state, action, info):
+    x_pos = info.get('x_pos', 0)
+    coins_collected = info.get('coins_collected', 0)
+    velocity = info.get('velocity', 0)
+
+    # Reward is a mix of progress, coin collection, and velocity.
+    # Velocity gives a little bonus for moving quickly.
+    reward = 0.1*x_pos + 2*coins_collected + 0.01*velocity
+
+    # Add a little bit of randomness to encourage exploration.
+    reward += 0.1 * (hash(str(state)) % 10)
+
+    # Subtract a small penalty for actions to encourage efficiency.
+    reward -= 0.01 * action
+
+    return float(reward)
+
+--- Loading Reward Function at 2025-08-06 17:12:56.023103 ---
+def reward_fn(state, action, info):
+    x_pos = info.get('x_pos', 0)
+    coins_collected = info.get('coins_collected', 0)
+    velocity = info.get('velocity', 0)
+
+    # Reward is a mix of progress, coin collection, and velocity.
+    # Velocity gives a little bonus for moving quickly.
+    reward = 0.1*x_pos + 2*coins_collected + 0.01*velocity
+
+    # Add a little bit of randomness to encourage exploration.
+    reward += 0.1 * (hash(str(state)) % 10)
+
+    # Subtract a small penalty for actions to encourage efficiency.
+    reward -= 0.01 * action
+
+    return float(reward)
+
+--- Loading Reward Function at 2025-08-06 17:13:36.932580 ---
+def reward_fn(state, action, info):
+    x_pos = info.get('x_pos', 0)
+    coins_collected = info.get('coins_collected', 0)
+    velocity = info.get('velocity', 0)
+
+    # Reward is a mix of progress, coin collection, and velocity.
+    # Velocity gives a little bonus for moving quickly.
+    reward = 0.1*x_pos + 2*coins_collected + 0.01*velocity
+
+    # Add a little bit of randomness to encourage exploration.
+    reward += 0.1 * (hash(str(state)) % 10)
+
+    # Subtract a small penalty for actions to encourage efficiency.
+    reward -= 0.01 * action
+
+    return float(reward)
+
+--- Loading Reward Function at 2025-08-06 17:17:43.817208 ---
+def reward_fn(state, action, info):
+    x = info.get('x_pos', 1)
+    coins = info.get('coins_collected', 0)
+    # Reward based on coin collection and x-position
+    reward = (x / 100.0) + (coins * 2)
+    # Encourage exploration - the agent gets a small bonus for every new action it takes
+    exploration_bonus = 0.01 if action not in state.get('past_actions', set()) else 0
+    # Store the action in past_actions for future reference
+    state['past_actions'] = state.get('past_actions', set()).add(action)
+    # scale the reward by a small random factor for variance and slight unpredictability
+    reward = reward * (1.0 + exploration_bonus) * (0.95 + 0.1 * random.random())
+    return reward
+
+--- Loading Reward Function at 2025-08-06 17:17:45.361011 ---
+def reward_fn(state, action, info):
+    x = info.get('x_pos', 1)
+    coins = info.get('coins_collected', 0)
+    # Reward based on coin collection and x-position
+    reward = (x / 100.0) + (coins * 2)
+    # Encourage exploration - the agent gets a small bonus for every new action it takes
+    exploration_bonus = 0.01 if action not in state.get('past_actions', set()) else 0
+    # Store the action in past_actions for future reference
+    state['past_actions'] = state.get('past_actions', set()).add(action)
+    # scale the reward by a small random factor for variance and slight unpredictability
+    reward = reward * (1.0 + exploration_bonus) * (0.95 + 0.1 * random.random())
+    return reward
+
+--- Loading Reward Function at 2025-08-06 17:18:23.516525 ---
+def reward_fn(state, action, info):
+    x = info.get('x_pos', 1)
+    coins = info.get('coins_collected', 0)
+    # Reward based on coin collection and x-position
+    reward = (x / 100.0) + (coins * 2)
+    # Encourage exploration - the agent gets a small bonus for every new action it takes
+    exploration_bonus = 0.01 if action not in state.get('past_actions', set()) else 0
+    # Store the action in past_actions for future reference
+    state['past_actions'] = state.get('past_actions', set()).add(action)
+    # scale the reward by a small random factor for variance and slight unpredictability
+    reward = reward * (1.0 + exploration_bonus) * (0.95 + 0.1 * random.random())
+    return reward

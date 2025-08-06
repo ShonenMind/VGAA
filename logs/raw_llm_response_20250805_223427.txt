@@ -1,8 +1,0 @@
-```python
-import math
-
-def reward_fn(state, action, info):
-    reward_base = info.get("coins_collected", 1)
-    reward_random = math.sin(state.get("x", 0)) ** 2 + math.exp(-info.get("time_left", 100))
-    return reward_base * reward_random
-```

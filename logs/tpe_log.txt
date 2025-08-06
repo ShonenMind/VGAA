@@ -1,5 +1,8 @@
+TPE Log - Training Session
+Started at: 2025-08-06T18:57:55.784763
+==================================================
 
-[Collecting trajectories - Round ?]
+[Collecting trajectories - Round 1]
 Episode 1: final progress = 0.000
 Episode 2: final progress = 0.000
 Episode 3: final progress = 0.000
@@ -10,3 +13,6 @@ Episode 7: final progress = 0.000
 Episode 8: final progress = 0.000
 Episode 9: final progress = 0.000
 Episode 10: final progress = 0.000
+Round 1: STOPPED - Insufficient trajectories
+
+Training and refinement complete at 2025-08-06T19:04:15.478273

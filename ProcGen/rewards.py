@@ -10,11 +10,7 @@ import os
 from datetime import datetime
 
 def extract_code_block(response_text):
-    os.makedirs("logs", exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    with open(f"logs/raw_llm_response_{timestamp}.txt", "w") as f:
-        f.write(response_text)
-
     match = re.search(r"```python(.*?)```", response_text, re.DOTALL)
     if match:
         return match.group(1).strip()
@@ -70,31 +66,37 @@ def _run_llm_prompt(system_msg, user_msg, temperature=0.7, max_tokens=300):
 def get_random_reward_fn():
     system_msg = (
         "You are an assistant that writes Python reward functions for reinforcement learning "
-        "agents in the Procgen CoinRun environment."
+        "agents in the Procgen CoinRun environment. Reward functions should guide the agent "
+        "toward collecting coins and moving rightward (increasing x-position), while also allowing "
+        "for novelty or exploration incentives. CoinRun rewards typically depend on fields in `info` "
+        "(like 'x_pos', 'coins_collected', 'velocity')."
     )
 
-    # k-shot: example of expected response format
     k_shot_example = """Here is an example of the format you should use:
 
 ```python
 def reward_fn(state, action, info):
-    return state.get("x", 0) * 0.5 + info.get("velocity", 0)
+    x = info.get("x_pos", 0)
+    coins = info.get("coins_collected", 0)
+    return x * 0.01 + coins
 ```"""
 
     user_msg = f"""
 Write a Python function named `reward_fn(state, action, info)` that returns a float reward.
-You do NOT know exact details, but have a vague idea that CoinRun involves collecting coins and moving forward.
 
-Make the reward function somewhat random or unusual, but valid Python.
-Return a reward based on 'info' or 'state' that might encourage novel behavior.
-Do NOT use external APIs or unsafe code.
+Constraints:
+- Use fields from `info` (like 'x_pos', 'velocity', 'coins_collected').
+- Encourage progress (e.g. increasing x-position) and/or coin collection.
+- Make the reward slightly unusual or interesting (e.g. shaping, small randomness, smooth changes), but avoid nonsensical or purely random formulas.
+- Do NOT use external packages or unsafe code.
+- The function must be valid, executable Python and must return a float.
 
-ONLY output a single Python code block like ```python ... ``` — no explanation.
+ONLY output one Python code block like ```python ... ``` and nothing else.
 
 {k_shot_example}
 """
 
-    return _run_llm_prompt(system_msg, user_msg, temperature=1.0)
+    return _run_llm_prompt(system_msg, user_msg, temperature=0.9)
 
 
 def get_reactive_reward_fn(previous_code: str, trajectory_summary: str):
