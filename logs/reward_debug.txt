@@ -204,3 +204,25 @@ def reward_fn(state, action, info):
     exploration_reward = velocity * 0.1
     
     return x_reward + coins_reward + exploration_reward
+
+===== Reward Load Attempt [2025-08-06T19:45:50.872411] =====
+[DEBUG] reward_code_str just before exec:
+def reward_fn(state, action, info, original_reward=0):
+    import numpy as np
+
+    # Shape the original reward from the environment
+    shaped_reward = np.square(original_reward)
+
+    # Add exploration bonus
+    exploration_bonus = 0.05 * np.sqrt(original_reward)
+
+    # Encourage action diversity by randomizing the reward
+    diversity_bonus = 0.01 * (np.random.randn() + 1)
+
+    # Add bonus reward for level completion
+    level_complete_bonus = 1.0 if info.get('prev_level_complete', 0) else 0.0
+
+    # Summarize the total reward
+    total_reward = shaped_reward + exploration_bonus + diversity_bonus + level_complete_bonus
+
+    return total_reward

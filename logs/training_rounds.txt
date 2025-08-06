@@ -1,10 +1,5 @@
 Training Rounds Log - Training Session
-Started at: 2025-08-06T18:57:55.785045
+Started at: 2025-08-06T19:45:44.640121
 ==================================================
 
 === Training Round 1 ===
-Round 1: Eval Reward: 0.00 ± 0.00
-Round 1: Collected 0 successful, 10 unsuccessful trajectories
-Round 1: Insufficient successful/unsuccessful trajectories for TPE. Stopping.
-
-Training and refinement complete at 2025-08-06T19:04:15.478273
