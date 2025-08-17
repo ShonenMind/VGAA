@@ -70,9 +70,56 @@ class ProcgenCoinRunEnvWrapper(gym.Env):
         return obs, float(custom_reward), done, info
 
     def _extract_velocity_from_painted_info(self, obs):
-        """Extract velocity using pixel-based position tracking (reliable method)"""
+        """Extract velocity from painted velocity info using the official encoding formula"""
         try:
-            # Use pixel-based position tracking for reliable velocity
+            # Extract the painted velocity area (top-left corner)
+            painted_area = obs[:20, :30, :]  # Adjust size as needed
+            
+            # Find pixels that are in the gray velocity range (around 127)
+            gray_mask = (painted_area[:,:,0] >= 100) & (painted_area[:,:,0] <= 154) & \
+                       (painted_area[:,:,1] >= 100) & (painted_area[:,:,1] <= 154) & \
+                       (painted_area[:,:,2] >= 100) & (painted_area[:,:,2] <= 154)
+            
+            if not np.any(gray_mask):
+                # Fall back to pixel-based tracking if no painted velocity found
+                return self._calculate_pixel_based_velocity(obs)
+            
+            # Get the painted velocity pixels
+            gray_pixels = painted_area[gray_mask]
+            
+            if len(gray_pixels) == 0:
+                return self._calculate_pixel_based_velocity(obs)
+            
+            # Use the most common gray values (in case there are multiple)
+            unique_colors, counts = np.unique(gray_pixels.reshape(-1, 3), axis=0, return_counts=True)
+            dominant_color = unique_colors[np.argmax(counts)]
+            
+            # Decode velocity using the official formula:
+            # velocity = (color - 127) / 128 * max_velocity
+            
+            # Estimate max_velocity (typical values for CoinRun are around 10-20)
+            # You may need to adjust this based on observation
+            max_velocity = 15.0
+            
+            # Extract velocity components from R and G channels
+            # (assuming x velocity in R channel, y velocity in G channel)
+            vel_x = ((dominant_color[0] - 127) / 128.0) * max_velocity
+            vel_y = ((dominant_color[1] - 127) / 128.0) * max_velocity
+            
+            # Clamp velocities to reasonable ranges
+            vel_x = np.clip(vel_x, -max_velocity, max_velocity)
+            vel_y = np.clip(vel_y, -max_velocity, max_velocity)
+            
+            return (float(vel_x), float(vel_y))
+            
+        except Exception as e:
+            print(f"[WARNING] Painted velocity extraction failed: {e}")
+            # Fall back to pixel-based tracking
+            return self._calculate_pixel_based_velocity(obs)
+    
+    def _calculate_pixel_based_velocity(self, obs):
+        """Fallback pixel-based velocity calculation"""
+        try:
             from adaptive_pixel_utils import get_player_x_position, get_player_y_position
             
             current_x = get_player_x_position(obs)
@@ -82,7 +129,6 @@ class ProcgenCoinRunEnvWrapper(gym.Env):
             if self.prev_player_pos is None:
                 velocity = (0.0, 0.0)
             else:
-                # Calculate velocity as position change per timestep
                 vel_x = current_pos[0] - self.prev_player_pos[0]
                 vel_y = current_pos[1] - self.prev_player_pos[1]
                 velocity = (vel_x, vel_y)
@@ -91,7 +137,7 @@ class ProcgenCoinRunEnvWrapper(gym.Env):
             return velocity
             
         except Exception as e:
-            print(f"[WARNING] Velocity extraction failed: {e}")
+            print(f"[WARNING] Pixel-based velocity calculation failed: {e}")
             return (0.0, 0.0)
 
     def render(self, mode='human'):
