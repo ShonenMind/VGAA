@@ -48,43 +48,73 @@ def get_random_reward_fn():
     system_msg = (
         "You are an assistant that writes Python reward functions for reinforcement learning "
         "agents in the Procgen CoinRun environment. CoinRun is a visual environment where game state "
-        "is encoded in 64x64x3 pixel observations, not in the info dictionary. The info dictionary "
-        "only contains level metadata like 'prev_level_seed', 'level_seed', etc."
+        "is encoded in 64x64x3 pixel observations. The info dictionary contains level metadata and "
+        "velocity information extracted from the environment."
     )
 
     k_shot_example = """Here is an example of the format you should use:
 
 ```python
 def reward_fn(state, action, info, original_reward=0):
+    # Get velocity information
+    vel_x = info.get('velocity_x', 0)
+    vel_y = info.get('velocity_y', 0)
+    
     # Shape the original reward from the environment
     shaped_reward = original_reward * 2.0
+    
+    # Reward rightward movement
+    movement_bonus = max(vel_x * 0.1, 0)  # Only reward rightward
+    
+    # Small penalty for excessive vertical movement
+    stability_penalty = abs(vel_y) * 0.05
     
     # Add exploration bonus
     exploration_bonus = 0.01
     
-    # Add some small randomness for diversity
-    import random
-    noise = random.uniform(-0.005, 0.005)
-    
-    return shaped_reward + exploration_bonus + noise
+    return shaped_reward + movement_bonus + exploration_bonus - stability_penalty
 ```"""
 
     user_msg = f"""
 Write a Python function named `reward_fn(state, action, info, original_reward=0)` that returns a float reward.
 
 IMPORTANT CONSTRAINTS:
-- The info dictionary ONLY contains: 'prev_level_seed', 'prev_level_complete', 'level_seed', 'TimeLimit.truncated'
-- Game state (position, coins) is NOT available in info - it's encoded in the 64x64x3 pixel observation
+- The info dictionary now contains velocity information: 'velocity_x', 'velocity_y', 'velocity_magnitude'
+- velocity_x: horizontal velocity (positive = moving right, negative = moving left)
+- velocity_y: vertical velocity (positive = moving up, negative = moving down)  
+- velocity_magnitude: overall speed regardless of direction
+- The info dictionary also contains level metadata: 'prev_level_seed', 'prev_level_complete', 'level_seed'
 - Use the original_reward parameter as your base - it contains the environment's built-in reward signal
-- You can shape/scale the original reward and add bonuses for exploration, action diversity, etc.
-- Do NOT try to access non-existent keys like 'x_pos', 'coins_collected', 'velocity'
+- You can shape/scale the original reward and add bonuses based on velocity and movement patterns
+
+VELOCITY USAGE EXAMPLES:
+```python
+def reward_fn(state, action, info, original_reward=0):
+    vel_x = info.get('velocity_x', 0)
+    vel_y = info.get('velocity_y', 0)
+    speed = info.get('velocity_magnitude', 0)
+    
+    # Reward efficient rightward movement
+    movement_reward = max(vel_x * 0.1, 0)
+    
+    # Penalize excessive jumping/falling
+    stability_penalty = abs(vel_y) * 0.03
+    
+    # Bonus for maintaining good speed
+    speed_bonus = min(speed * 0.05, 0.2)
+    
+    # Level completion bonus
+    completion_bonus = info.get('prev_level_complete', 0) * 1.0
+    
+    return original_reward + movement_reward + speed_bonus - stability_penalty + completion_bonus
+```
 
 Focus on:
-- Scaling/shaping the original_reward
-- Adding small exploration bonuses  
-- Encouraging action diversity
-- Using level completion (info.get('prev_level_complete', 0)) if helpful
-- Adding small amounts of randomness for exploration
+- Using velocity to encourage efficient movement patterns
+- Rewarding or penalizing specific movement behaviors (rightward good, excessive jumping bad)
+- Balancing speed vs stability
+- Using original_reward as the foundation
+- Adding small exploration bonuses
 
 ONLY output one Python code block like ```python ... ``` and nothing else.
 
@@ -97,7 +127,7 @@ ONLY output one Python code block like ```python ... ``` and nothing else.
 def get_reactive_reward_fn(previous_code: str, trajectory_summary: str):
     system_msg = (
         "You are an assistant that writes Python reward functions for the Procgen CoinRun environment. "
-        "CoinRun info only contains level metadata, not game state. Use the original_reward parameter."
+        "The info dictionary contains level metadata and velocity information (velocity_x, velocity_y, velocity_magnitude)."
     )
 
     user_msg = f"""
@@ -115,9 +145,26 @@ Please fix the reward function. Write a new function named `reward_fn(state, act
 
 IMPORTANT:
 - Use original_reward parameter as the base reward signal
-- The info dictionary only contains level metadata, not game state
-- Focus on reward shaping, exploration bonuses, and action diversity
-- Do NOT use non-existent keys like 'x_pos', 'coins_collected', 'velocity'
+- The info dictionary contains velocity information: 'velocity_x', 'velocity_y', 'velocity_magnitude'
+- velocity_x: horizontal velocity (positive = right, negative = left)
+- velocity_y: vertical velocity (positive = up, negative = down)
+- Focus on using velocity to encourage better movement patterns
+- The info dictionary also contains level metadata
+
+VELOCITY-BASED IMPROVEMENTS:
+```python
+def reward_fn(state, action, info, original_reward=0):
+    vel_x = info.get('velocity_x', 0)
+    vel_y = info.get('velocity_y', 0)
+    
+    # Focus on steady rightward progress
+    progress_reward = max(vel_x * 0.15, 0)
+    
+    # Discourage erratic movement
+    stability_bonus = 0.1 if abs(vel_y) < 0.5 else 0
+    
+    return original_reward + progress_reward + stability_bonus
+```
 
 Only output a single Python code block like ```python ... ```. Do not include any explanation or text outside the code block.
 """
@@ -137,7 +184,7 @@ Only output a single Python code block like ```python ... ```. Do not include an
 def get_proactive_reward_fn(current_code: str):
     system_msg = (
         "You are an assistant that helps improve Python reward functions for the Procgen CoinRun environment. "
-        "CoinRun info only contains level metadata. Use the original_reward parameter for reward shaping."
+        "The info dictionary contains level metadata and velocity information (velocity_x, velocity_y, velocity_magnitude)."
     )
 
     user_msg = f"""
@@ -152,8 +199,29 @@ Write a new version of `reward_fn(state, action, info, original_reward=0)` if yo
 
 IMPORTANT:
 - Use original_reward parameter as the base reward signal
-- The info dictionary only contains level metadata, not game state  
-- Focus on reward shaping, exploration bonuses, and action diversity
+- The info dictionary contains velocity information: 'velocity_x', 'velocity_y', 'velocity_magnitude'
+- velocity_x: horizontal velocity (positive = right, negative = left)
+- velocity_y: vertical velocity (positive = up, negative = down)
+- Focus on using velocity to encourage efficient movement patterns
+
+VELOCITY OPTIMIZATION IDEAS:
+```python
+def reward_fn(state, action, info, original_reward=0):
+    vel_x = info.get('velocity_x', 0)
+    vel_y = info.get('velocity_y', 0)
+    speed = info.get('velocity_magnitude', 0)
+    
+    # Encourage consistent rightward momentum
+    momentum_reward = vel_x * 0.2 if vel_x > 0 else vel_x * 0.05
+    
+    # Reward smooth movement (low Y velocity variance)
+    smoothness_bonus = 0.1 if abs(vel_y) < 1.0 else 0
+    
+    # Speed efficiency bonus
+    efficiency_bonus = min(speed * 0.03, 0.15)
+    
+    return original_reward + momentum_reward + smoothness_bonus + efficiency_bonus
+```
 
 Only output a single Python code block like ```python ... ```. No explanations.
 """

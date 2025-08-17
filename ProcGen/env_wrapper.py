@@ -3,7 +3,6 @@ import numpy as np
 import procgen
 import os
 from datetime import datetime
-#testing from vs code app (aanya)
 from reward_loader import load_reward_fn
 
 ENV_WRAPPER_LOG = "logs/env_wrapper_debug.log"
@@ -15,50 +14,94 @@ def log_to_file(message, log_file=ENV_WRAPPER_LOG):
 
 class ProcgenCoinRunEnvWrapper(gym.Env):
     def __init__(self, reward_code=None, num_levels=200, start_level=0, use_sequential_levels=False):
+        # Use paint_vel_info=True (even though we'll use pixel-based tracking for now)
         self.env = gym.make('procgen:procgen-coinrun-v0',
                             num_levels=num_levels,
                             start_level=start_level,
-                            use_sequential_levels=use_sequential_levels)
+                            use_sequential_levels=use_sequential_levels,
+                            paint_vel_info=True)
+        print("[DEBUG] Created environment with paint_vel_info=True")
+        
         self.observation_space = self.env.observation_space
         self.action_space = self.env.action_space
         self.reward_code = reward_code
         self.reward_fn = self._load_reward_fn(reward_code) if reward_code else None
+        
+        # For pixel-based velocity tracking
+        self.prev_player_pos = None
 
     def reset(self, **kwargs):
-        return self.env.reset(**kwargs)
+        obs = self.env.reset(**kwargs)
+        # Reset velocity tracking
+        self.prev_player_pos = None
+        return obs
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
+        
+        # Extract velocity from painted velocity info
+        velocity = self._extract_velocity_from_painted_info(obs)
+        
+        # Add velocity information to info
+        info['velocity_x'] = velocity[0]
+        info['velocity_y'] = velocity[1]
+        info['velocity_magnitude'] = (velocity[0]**2 + velocity[1]**2)**0.5
+        info['velocity'] = velocity
+
+        # Prepare state for reward function
         state = {"obs": obs}
         if "progress" in info:
             state["progress"] = info["progress"]
 
+        # Calculate custom reward
         if self.reward_fn is not None:
             try:
-                custom_reward = self.reward_fn(state, action, info)
+                custom_reward = self.reward_fn(state, action, info, reward)
             except Exception as e:
                 print("Reward function error:", e)
                 log_to_file(f"WARNING: Reward function crashed: {str(e)}. Using default reward.")
-                custom_reward = 0.0
+                custom_reward = reward
         else:
-            custom_reward = 0.0
+            custom_reward = reward
 
-        print(f"[DEBUG] Original reward: {reward}, Custom reward: {custom_reward}")
-        log_to_file(f"Original reward: {reward}, Custom reward: {custom_reward}")
+        print(f"[DEBUG] Original reward: {reward}, Custom reward: {custom_reward}, Velocity: {velocity}")
+        log_to_file(f"Original reward: {reward}, Custom reward: {custom_reward}, Velocity: {velocity}")
 
-        # return original reward if custom_reward is None or 0
         return obs, float(custom_reward), done, info
+
+    def _extract_velocity_from_painted_info(self, obs):
+        """Extract velocity using pixel-based position tracking (reliable method)"""
+        try:
+            # Use pixel-based position tracking for reliable velocity
+            from adaptive_pixel_utils import get_player_x_position, get_player_y_position
+            
+            current_x = get_player_x_position(obs)
+            current_y = get_player_y_position(obs)
+            current_pos = (current_x, current_y)
+            
+            if self.prev_player_pos is None:
+                velocity = (0.0, 0.0)
+            else:
+                # Calculate velocity as position change per timestep
+                vel_x = current_pos[0] - self.prev_player_pos[0]
+                vel_y = current_pos[1] - self.prev_player_pos[1]
+                velocity = (vel_x, vel_y)
+            
+            self.prev_player_pos = current_pos
+            return velocity
+            
+        except Exception as e:
+            print(f"[WARNING] Velocity extraction failed: {e}")
+            return (0.0, 0.0)
 
     def render(self, mode='human'):
         frames = self.env.render(mode)
         if mode == 'rgb_array':
-            # frames is a batch (list/array) of images from vector env
             if isinstance(frames, (list, tuple, np.ndarray)):
                 return frames[0]
             return frames
         else:
             return frames
-
 
     def close(self):
         self.env.close()
