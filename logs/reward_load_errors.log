@@ -1,0 +1,14 @@
+[2025-08-19 01:41:06.515108] Load error: invalid syntax (<string>, line 3)
+Code snippet:
+```python
+def reward_fn(state, action, info, original_reward=0):
+    import numpy as np
+    # Extract observation for velocity info
+    obs = state.get('obs', None)
+    # Shape the original reward from the environment
+    shaped_reward = original_reward * 2.0
+    # Add exploration bonus
+    exploration_bonus = 0.01
+    # Extract velocity from painted velocity boxes (top-left corner)
+    if obs is not None and obs.shape == (64, 64, 3):
+        # Get velocity from the two 8x8 painted squares in to

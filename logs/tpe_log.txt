@@ -1,3 +1,5 @@
 TPE Log - Training Session
-Started at: 2025-08-06T19:45:44.639831
+Started at: 2025-08-19T01:50:42.324378
 ==================================================
+
+[Collecting trajectories - Round 1]

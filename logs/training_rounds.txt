@@ -1,5 +1,6 @@
 Training Rounds Log - Training Session
-Started at: 2025-08-06T19:45:44.640121
+Started at: 2025-08-19T01:50:42.324681
 ==================================================
 
 === Training Round 1 ===
+Round 1: Eval Reward: 17.86 ± 9.61

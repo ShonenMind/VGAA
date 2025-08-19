@@ -31,7 +31,7 @@ def extract_code_block(response_text):
     raise ValueError(f"No valid Python code block found in LLM response. Logged to {filename}")
 
 
-def _run_llm_prompt(system_msg, user_msg, temperature=0.7, max_tokens=300):
+def _run_llm_prompt(system_msg, user_msg, temperature=0.7, max_tokens=800):
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
@@ -56,17 +56,42 @@ def get_random_reward_fn():
 
 ```python
 def reward_fn(state, action, info, original_reward=0):
+    import numpy as np
+    
+    # Extract observation for velocity info
+    obs = state.get('obs', None)
+    
     # Shape the original reward from the environment
     shaped_reward = original_reward * 2.0
     
     # Add exploration bonus
     exploration_bonus = 0.01
     
+    # Extract velocity from painted velocity boxes (top-left corner)
+    if obs is not None and obs.shape == (64, 64, 3):
+        # Get velocity from the two 8x8 painted squares in top-left corner
+        # Left box (horizontal velocity): obs[0:8, 0:8] - white=rightward, black=leftward
+        # Right box (vertical velocity): obs[0:8, 8:16] - white=upward, black=downward
+        
+        # Sample center pixels of each box to get velocity values
+        h_vel_pixel = obs[4, 4]  # Center of left box (horizontal velocity)
+        v_vel_pixel = obs[4, 12]  # Center of right box (vertical velocity)
+        
+        # Decode velocity: grayscale value indicates velocity direction/magnitude
+        # White (255) = max positive velocity, Black (0) = max negative velocity, Gray (128) = zero
+        h_velocity = (np.mean(h_vel_pixel) - 128) / 128.0  # Normalize to -1 to +1
+        v_velocity = (np.mean(v_vel_pixel) - 128) / 128.0
+        
+        # Reward rightward movement and jumping, penalize going backwards
+        velocity_bonus = h_velocity * 0.1 + max(0, v_velocity) * 0.05
+    else:
+        velocity_bonus = 0
+    
     # Add some small randomness for diversity
     import random
     noise = random.uniform(-0.005, 0.005)
     
-    return shaped_reward + exploration_bonus + noise
+    return shaped_reward + exploration_bonus + velocity_bonus + noise
 ```"""
 
     user_msg = f"""
@@ -79,10 +104,26 @@ IMPORTANT CONSTRAINTS:
 - You can shape/scale the original reward and add bonuses for exploration, action diversity, etc.
 - Do NOT try to access non-existent keys like 'x_pos', 'coins_collected', 'velocity'
 
+VELOCITY INFORMATION AVAILABLE (PAINTED VELOCITY BOXES):
+- ProcGen CoinRun paints velocity information as TWO colored squares in the top-left corner
+- Each square is approximately 8x8 pixels in size (for 64x64 observations)
+- LEFT BOX (pixels [0:8, 0:8]): Horizontal velocity
+  * White pixels (high values ~255) = rightward movement
+  * Black pixels (low values ~0) = leftward movement  
+  * Gray pixels (~128) = no horizontal movement
+- RIGHT BOX (pixels [0:8, 8:16]): Vertical velocity
+  * White pixels (high values ~255) = upward movement (jumping)
+  * Black pixels (low values ~0) = downward movement (falling)
+  * Gray pixels (~128) = no vertical movement
+- To extract: sample center pixels like obs[4, 4] for horizontal, obs[4, 12] for vertical
+- Decode velocity: (pixel_value - 128) / 128.0 gives normalized velocity in range [-1, +1]
+- Use this for sophisticated movement-based reward shaping (e.g., reward rightward progress, jumping)
+
 Focus on:
 - Scaling/shaping the original_reward
 - Adding small exploration bonuses  
 - Encouraging action diversity
+- Using velocity information from painted pixels to reward good movement
 - Using level completion (info.get('prev_level_complete', 0)) if helpful
 - Adding small amounts of randomness for exploration
 
@@ -119,6 +160,21 @@ IMPORTANT:
 - Focus on reward shaping, exploration bonuses, and action diversity
 - Do NOT use non-existent keys like 'x_pos', 'coins_collected', 'velocity'
 
+VELOCITY INFORMATION AVAILABLE (PAINTED VELOCITY BOXES):
+- ProcGen CoinRun paints velocity information as TWO colored squares in the top-left corner
+- Each square is approximately 8x8 pixels in size (for 64x64 observations)
+- LEFT BOX (pixels [0:8, 0:8]): Horizontal velocity
+  * White pixels (high values ~255) = rightward movement
+  * Black pixels (low values ~0) = leftward movement  
+  * Gray pixels (~128) = no horizontal movement
+- RIGHT BOX (pixels [0:8, 8:16]): Vertical velocity
+  * White pixels (high values ~255) = upward movement (jumping)
+  * Black pixels (low values ~0) = downward movement (falling)
+  * Gray pixels (~128) = no vertical movement
+- To extract: sample center pixels like obs[4, 4] for horizontal, obs[4, 12] for vertical
+- Decode velocity: (pixel_value - 128) / 128.0 gives normalized velocity in range [-1, +1]
+- Use this for sophisticated movement-based reward shaping (e.g., reward rightward progress, jumping)
+
 Only output a single Python code block like ```python ... ```. Do not include any explanation or text outside the code block.
 """
 
@@ -154,6 +210,21 @@ IMPORTANT:
 - Use original_reward parameter as the base reward signal
 - The info dictionary only contains level metadata, not game state  
 - Focus on reward shaping, exploration bonuses, and action diversity
+
+VELOCITY INFORMATION AVAILABLE (PAINTED VELOCITY BOXES):
+- ProcGen CoinRun paints velocity information as TWO colored squares in the top-left corner
+- Each square is approximately 8x8 pixels in size (for 64x64 observations)
+- LEFT BOX (pixels [0:8, 0:8]): Horizontal velocity
+  * White pixels (high values ~255) = rightward movement
+  * Black pixels (low values ~0) = leftward movement  
+  * Gray pixels (~128) = no horizontal movement
+- RIGHT BOX (pixels [0:8, 8:16]): Vertical velocity
+  * White pixels (high values ~255) = upward movement (jumping)
+  * Black pixels (low values ~0) = downward movement (falling)
+  * Gray pixels (~128) = no vertical movement
+- To extract: sample center pixels like obs[4, 4] for horizontal, obs[4, 12] for vertical
+- Decode velocity: (pixel_value - 128) / 128.0 gives normalized velocity in range [-1, +1]
+- Use this for sophisticated movement-based reward shaping (e.g., reward rightward progress, jumping)
 
 Only output a single Python code block like ```python ... ```. No explanations.
 """
