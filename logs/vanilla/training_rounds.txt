@@ -1,3 +1,6 @@
-Training Rounds.Txt - Training Session
-Started at: 2025-08-06T18:40:34.574348
+Vanilla PPO Training Log
+Started at: 2025-08-19T02:11:34.849386
 ==================================================
+
+=== Vanilla Training Round 1 ===
+Vanilla Round 1: Eval Reward: 7.00 ± 4.58
